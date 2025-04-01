@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "UpbwrcX2pTo=",
+  "success": true,
+  "projectFilePath": "/home/abdielo/dev/compi2/proyecto2/backend/backend.csproj",
+  "expectedPackageFiles": [
+    "/home/abdielo/.nuget/packages/antlr4.runtime.standard/4.13.1/antlr4.runtime.standard.4.13.1.nupkg.sha512",
+    "/home/abdielo/.nuget/packages/microsoft.aspnetcore.openapi/9.0.1/microsoft.aspnetcore.openapi.9.0.1.nupkg.sha512",
+    "/home/abdielo/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
