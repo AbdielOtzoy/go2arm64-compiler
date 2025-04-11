@@ -97,6 +97,7 @@ export default function Home() {
       
     }
   }
+  
 
   const handleCopyOutput = () => {
     navigator.clipboard.writeText(output)

@@ -67,3 +67,4 @@
 /home/abdielo/dev/compi2/proyecto2/backend/obj/Debug/net9.0/backend.csproj.Up2Date
 /home/abdielo/dev/compi2/proyecto2/backend/obj/Debug/net9.0/backend.genruntimeconfig.cache
 /home/abdielo/dev/compi2/proyecto2/backend/obj/Debug/net9.0/ref/backend.dll
+/home/abdielo/dev/compi2/proyecto2/backend/obj/Debug/net9.0/backend.sourcelink.json

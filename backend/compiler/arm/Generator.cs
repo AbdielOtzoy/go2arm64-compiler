@@ -1,8 +1,128 @@
 using System.Text;
 
+public class StackObject {
+    public enum StackObjectType { Int, Float, String }
+    public StackObjectType Type { get; set; }
+    public int Length { get; set; }
+    public int Depth { get; set; }
+    public string? Id { get; set; }
+}
+
 public class ArmGenerator {
     private readonly List<string> _instructions = new List<string>();
-    private readonly StandarLibrary _standardLibrary = new StandarLibrary();
+    private readonly StandardLibrary _standardLibrary = new StandardLibrary();
+    private List<StackObject> _stack = new List<StackObject>();
+    private int _depth = 0;
+
+    // stack operations
+    public void PushObject(StackObject obj) {
+        _stack.Add(obj);
+    }
+
+    public void PushConstant(StackObject obj, object value) {
+        switch (obj.Type) {
+            case StackObject.StackObjectType.Int:
+                Mov(Register.X0, int.Parse(value.ToString()));
+                Push(Register.X0);
+                break;
+            case StackObject.StackObjectType.Float:
+                break;
+            case StackObject.StackObjectType.String:
+                List<byte> stringBytes = Utils.StringTo1ByteArray((string)value);
+                Push(Register.HP);
+                for (int i = 0; i < stringBytes.Count; i++) {
+                    var charCode = stringBytes[i];
+
+                    Comment("Pushing char: " + charCode + " (" + (char)charCode + ")");
+                    Mov("W0", charCode);
+                    Strb("W0", Register.HP);
+                    Mov(Register.X0, 1);
+                    Add(Register.HP, Register.HP, Register.X0);
+                }
+                break;
+        }
+
+        PushObject(obj);
+    }
+
+    public StackObject IntObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.Int,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+
+    public StackObject FloatObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.Float,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+
+    public StackObject StringObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.String,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+
+    public StackObject CloneObject(StackObject obj) {
+        return new StackObject {
+            Type = obj.Type,
+            Length = obj.Length,
+            Depth = obj.Depth,
+            Id = obj.Id
+        };
+    }
+
+    // Environment operations
+    public void NewScope() {
+        _depth++;
+    }
+
+    public int EndScope() {
+        int byteOffset = 0;
+
+        for(int i = _stack.Count - 1; i >= 0; i--) {
+            if (_stack[i].Depth == _depth) {
+                byteOffset += _stack[i].Length;
+                _stack.RemoveAt(i);
+            } else {
+                break;
+            }
+        }
+        _depth--;
+        return byteOffset;
+    }
+
+    public void TagObject(string id) {
+        _stack.Last().Id = id;
+    }
+
+    public (int, StackObject) GetObject(string id) {
+        int byteOffset = 0;
+        for (int i = _stack.Count - 1; i >= 0; i--) {
+            if (_stack[i].Id == id) {
+                return (byteOffset, _stack[i]);
+            }
+            byteOffset += _stack[i].Length;
+        }
+        throw new Exception("Object with id " + id + " not found");
+    }
+
+    public StackObject PopObject(string rd) {
+        var obj = _stack.Last();
+        _stack.RemoveAt(_stack.Count - 1);
+
+        Pop(rd);
+        return obj;
+    }
 
     public void Add(string rd, string rs1, string rs2) {
         _instructions.Add($"ADD {rd}, {rs1}, {rs2}");
@@ -26,6 +146,10 @@ public class ArmGenerator {
 
     public void Str(string rs1, string rs2, int offset = 0) {
         _instructions.Add($"STR {rs1}, [{rs2}, #{offset}]");
+    }
+
+    public void Strb(string rs1, string rs2) {
+        _instructions.Add($"STRB {rs1}, [{rs2}]");
     }
 
     public void Ldr(string rd, string rs1, int offset = 0) {
@@ -60,15 +184,24 @@ public class ArmGenerator {
         _instructions.Add($"BL print_integer");
     }
 
+    public void PrintString(string rs) {
+        _standardLibrary.Use("print_string");
+        _instructions.Add($"MOV X0, {rs}");
+        _instructions.Add($"BL print_string");
+    }
+
     public void Comment(string comment) {
         _instructions.Add($"// {comment}");
     }
 
     public override string ToString() {
         var sb = new StringBuilder();
+        sb.AppendLine(".data");
+        sb.AppendLine("heap: .space 4096");
         sb.AppendLine(".text");
         sb.AppendLine(".global _start");
         sb.AppendLine("_start:");
+        sb.AppendLine("    adr x10, heap");
 
         EndProgram();
 
@@ -77,7 +210,7 @@ public class ArmGenerator {
         }
 
         sb.AppendLine("\n\n\n // Standard Library");
-        sb.AppendLine(_standardLibrary.GetFunctinoDefinitions());
+        sb.AppendLine(_standardLibrary.GetFunctionDefinitions());
 
         return sb.ToString();
     }

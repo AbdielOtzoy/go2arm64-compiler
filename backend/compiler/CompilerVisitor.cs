@@ -18,6 +18,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitVarDeclaration(LanguageParser.VarDeclarationContext context){
+        var varName = context.ID(0).GetText();
+        c.Comment("Variable declaration: " + varName);
+        Visit(context.expr());
+        c.TagObject(varName);
         return null;
     }
 
@@ -42,19 +46,48 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitExprStmt(LanguageParser.ExprStmtContext context){
+        c.Comment("Expression statement");
+        Visit(context.expr());
+        c.PopObject(Register.X0);
         return null;
     }
 
     public override Object? VisitPrintStmt(LanguageParser.PrintStmtContext context){
         c.Comment("Print statement");
         Visit(context.expr());
-        c.Pop(Register.X0);
-        c.PrintInteger(Register.X0);
+
+        c.Comment("Popping");
+        var value = c.PopObject(Register.X0);
+        if(value.Type == StackObject.StackObjectType.Int) {
+            c.Comment("Printing integer");
+            c.PrintInteger(Register.X0);
+        }
+        else if (value.Type == StackObject.StackObjectType.String) {
+            c.Comment("Printing string");
+            c.PrintString(Register.X0);
+        }
         
         return null;
     }
 
     public override Object? VisitBlockStmt(LanguageParser.BlockStmtContext context){
+        c.Comment("Block statement");
+        c.NewScope();
+
+        foreach (var declaration in context.declaration())
+        {
+            Visit(declaration);
+        }
+
+        int bytesToRemove = c.EndScope();
+
+        if(bytesToRemove > 0) {
+            c.Comment("Popping local variables");
+            c.Mov(Register.X0, bytesToRemove);
+            c.Add(Register.SP, Register.SP, Register.X0);
+            c.Comment("Popped local variables");
+        }
+
         return null;
     }
 
@@ -111,6 +144,16 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitIdentifier(LanguageParser.IdentifierContext context){
+        var id = context.ID().GetText();
+        var (offset, obj) = c.GetObject(id);
+
+        c.Mov(Register.X0, offset);
+        c.Add(Register.X0, Register.SP, Register.X0);
+        c.Ldr(Register.X0, Register.X0);
+        c.Push(Register.X0);
+        var newObject = c.CloneObject(obj);
+        newObject.Id = null;
+        c.PushObject(newObject);
         return null;
     }
 
@@ -153,8 +196,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitNumber(LanguageParser.NumberContext context){
         var value = context.INT().GetText();
         c.Comment("Constant: " + value);
-        c.Mov(Register.X0, int.Parse(value));
-        c.Push(Register.X0);
+        var intObj = c.IntObject();
+        c.PushConstant(intObj, value);
         return null;
     }
 
@@ -183,8 +226,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         Visit(context.expr(0));
         Visit(context.expr(1));
 
-        c.Pop(Register.X1);
-        c.Pop(Register.X0);
+        var right = c.PopObject(Register.X1);
+        var left = c.PopObject(Register.X0);
 
         if (operation == "+")
         {
@@ -196,7 +239,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
 
         c.Push(Register.X0);
-
+        c.PushObject(c.CloneObject(left));
+       
         return null;
     }
 
@@ -217,10 +261,34 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitAssign(LanguageParser.AssignContext context){
+        var assignee = context.expr(0);
+
+        if( assignee is LanguageParser.IndexContext idContext) {
+            string varName = idContext.ID().GetText();
+            c.Comment("Assigning to variable: " + varName);
+            Visit(context.expr(1));
+            var valueObj = c.PopObject(Register.X0);
+            var (offset, varObj) = c.GetObject(varName);
+
+            c.Mov(Register.X1, offset);
+            c.Add(Register.X1, Register.SP, Register.X1);
+            c.Str(Register.X0, Register.X1);
+
+            varObj.Type = valueObj.Type;
+            
+            c.Push(Register.X0);
+            c.PushObject(c.CloneObject(valueObj));
+            return null;
+        }
+
         return null;
     }
 
     public override Object? VisitString(LanguageParser.StringContext context){
+        var value = context.STRING().GetText().Trim('"');
+        c.Comment("Constant: " + value);
+        var stringObj = c.StringObject();
+        c.PushConstant(stringObj, value);
         return null;
     }
 
