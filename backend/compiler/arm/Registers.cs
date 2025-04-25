@@ -76,5 +76,93 @@ public static class Register
     public static string V30 => "v30";
     public static string V31 => "v31";
 
+    // FPRs
+    // S -> simple registers
+    // D -> double registers
+    // Q -> quad registers
+
+    public static string S0 => "s0";
+    public static string S1 => "s1";
+    public static string S2 => "s2";
+    public static string S3 => "s3";
+    public static string S4 => "s4";
+    public static string S5 => "s5";
+    public static string S6 => "s6";
+    public static string S7 => "s7";
+    public static string S8 => "s8";
+    public static string S9 => "s9";
+    public static string S10 => "s10";
+    public static string S11 => "s11";
+    public static string S12 => "s12";
+    public static string S13 => "s13";
+    public static string S14 => "s14";
+    public static string S15 => "s15";
+    public static string S16 => "s16";
+    public static string S17 => "s17";
+    public static string S18 => "s18";
+    public static string S19 => "s19";
+    public static string S20 => "s20";
+    public static string S21 => "s21";
+    public static string S22 => "s22";
+    public static string S23 => "s23";
+    public static string S24 => "s24";
+    public static string S25 => "s25";
+    public static string S26 => "s26";
+    public static string S27 => "s27";
+    public static string S28 => "s28";
+    public static string S29 => "s29";
+    public static string S30 => "s30";
+    public static string S31 => "s31";
+
+    public static string D0 => "d0";
+    public static string D1 => "d1";
+    public static string D2 => "d2";
+    public static string D3 => "d3";
+    public static string D4 => "d4";
+    public static string D5 => "d5";
+    public static string D6 => "d6";
+    public static string D7 => "d7";
+    public static string D8 => "d8";
+    public static string D9 => "d9";
+    public static string D10 => "d10";
+    public static string D11 => "d11";
+    public static string D12 => "d12";
+    public static string D13 => "d13";
+    public static string D14 => "d14";
+    public static string D15 => "d15";
+    public static string D16 => "d16";
+    public static string D17 => "d17";
+    public static string D18 => "d18";
+    public static string D19 => "d19";
+    public static string D20 => "d20";
+    public static string D21 => "d21";
+    public static string D22 => "d22";
+    public static string D23 => "d23";
+    public static string D24 => "d24";
+    public static string D25 => "d25";
+    public static string D26 => "d26";
+    public static string D27 => "d27";
+    public static string D28 => "d28";
+    public static string D29 => "d29";
+    public static string D30 => "d30";
+    public static string D31 => "d31";
+
+    public static string Q0 => "q0";
+    public static string Q1 => "q1";
+    public static string Q2 => "q2";
+    public static string Q3 => "q3";
+    public static string Q4 => "q4";
+    public static string Q5 => "q5";
+    public static string Q6 => "q6";
+    public static string Q7 => "q7";
+    public static string Q8 => "q8";
+    public static string Q9 => "q9";
+    public static string Q10 => "q10";
+    public static string Q11 => "q11";
+    public static string Q12 => "q12";
+    public static string Q13 => "q13";
+    public static string Q14 => "q14";
+    public static string Q15 => "q15";
+
 
 }

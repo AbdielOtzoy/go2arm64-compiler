@@ -453,40 +453,6 @@ public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
         return defaultValue;
     }
 
-    public override ValueWrapper VisitForRangeStmt(LanguageParser.ForRangeStmtContext context)
-    {
-        Console.WriteLine("ForRangeStmt");
-
-        // Obtener los nombres de las variables y el slice
-        string indexName = context.ID(0).GetText();
-        string valueName = context.ID(1).GetText();
-        string sliceName = context.ID(2).GetText();
-
-        ValueWrapper sliceValue = env.Get(sliceName, context.Start);
-
-        if (sliceValue is not ArrayValueWrapper arrayValue)
-        {
-            throw new SemanticError("Variable is not an array", context.Start);
-        }
-
-        for (int i = 0; i < arrayValue.Value.Length; i++)
-        {
-            Enviorment loopEnv = new Enviorment(env);
-
-            loopEnv.Declare(indexName, new IntValueWrapper(i), context.Start);
-            loopEnv.Declare(valueName, arrayValue.Value[i], context.Start);
-
-            Enviorment previousEnv = env;
-            env = loopEnv;
-
-            Visit(context.statement());
-
-            env = previousEnv;
-        }
-
-        return defaultValue;
-    }
-
     // VisitForBody
     public void VisitForBody(LanguageParser.ForDeclStmtContext context)
     {
@@ -522,6 +488,42 @@ public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
             }
         }
     }
+
+    public override ValueWrapper VisitForRangeStmt(LanguageParser.ForRangeStmtContext context)
+    {
+        Console.WriteLine("ForRangeStmt");
+
+        // Obtener los nombres de las variables y el slice
+        string indexName = context.ID(0).GetText();
+        string valueName = context.ID(1).GetText();
+        string sliceName = context.ID(2).GetText();
+
+        ValueWrapper sliceValue = env.Get(sliceName, context.Start);
+
+        if (sliceValue is not ArrayValueWrapper arrayValue)
+        {
+            throw new SemanticError("Variable is not an array", context.Start);
+        }
+
+        for (int i = 0; i < arrayValue.Value.Length; i++)
+        {
+            Enviorment loopEnv = new Enviorment(env);
+
+            loopEnv.Declare(indexName, new IntValueWrapper(i), context.Start);
+            loopEnv.Declare(valueName, arrayValue.Value[i], context.Start);
+
+            Enviorment previousEnv = env;
+            env = loopEnv;
+
+            Visit(context.statement());
+
+            env = previousEnv;
+        }
+
+        return defaultValue;
+    }
+
+    
 
     // VisitBreakStmt
     public override ValueWrapper VisitBreakStmt(LanguageParser.BreakStmtContext context)

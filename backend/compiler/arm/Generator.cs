@@ -1,18 +1,36 @@
 using System.Text;
 
 public class StackObject {
-    public enum StackObjectType { Int, Float, String }
+    public enum StackObjectType { Int, Float, String, Bool }
     public StackObjectType Type { get; set; }
     public int Length { get; set; }
     public int Depth { get; set; }
     public string? Id { get; set; }
+    private String continueLabel = "";
+    private String breakLabel = "";
 }
 
 public class ArmGenerator {
-    private readonly List<string> _instructions = new List<string>();
+    public readonly List<string> _instructions = new List<string>();
     private readonly StandardLibrary _standardLibrary = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
+    private int labelCounter = 0;
+
+    public string GetLabel() {
+        return $"L{labelCounter++}";
+    }
+
+    public void SetLabel(string label) {
+        _instructions.Add($"{label}:");
+    }
+
+    public StackObject TopObject() {
+        if (_stack.Count == 0) {
+            throw new Exception("Stack is empty");
+        }
+        return _stack.Last();
+    }
 
     // stack operations
     public void PushObject(StackObject obj) {
@@ -26,6 +44,19 @@ public class ArmGenerator {
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.Float:
+                long floatBits = BitConverter.ToInt64(BitConverter.GetBytes(double.Parse(value.ToString())), 0);
+
+                short[] floatParts = new short[4];
+                for (int i = 0; i < 4; i++) {
+                    floatParts[i] = (short)((floatBits >> (i * 16)) & 0xFFFF);
+                }
+
+                _instructions.Add($"MOVZ X0, #{floatParts[0]}, LSL #0");
+                for (int i = 1; i < 4; i++) {
+                    _instructions.Add($"MOVK X0, #{floatParts[i]}, LSL #{i * 16}");
+                }
+                Push(Register.X0);
+    
                 break;
             case StackObject.StackObjectType.String:
                 List<byte> stringBytes = Utils.StringTo1ByteArray((string)value);
@@ -39,6 +70,10 @@ public class ArmGenerator {
                     Mov(Register.X0, 1);
                     Add(Register.HP, Register.HP, Register.X0);
                 }
+                break;
+            case StackObject.StackObjectType.Bool:
+                Mov(Register.X0, value.ToString() == "true" ? 1 : 0);
+                Push(Register.X0);
                 break;
         }
 
@@ -57,6 +92,15 @@ public class ArmGenerator {
     public StackObject FloatObject() {
         return new StackObject {
             Type = StackObject.StackObjectType.Float,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+
+    public StackObject BoolObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.Bool,
             Length = 8,
             Depth = _depth,
             Id = null
@@ -159,6 +203,33 @@ public class ArmGenerator {
     public void Mov(string rd, int imm) {
         _instructions.Add($"MOV {rd}, #{imm}");
     }
+    public void Fmov(string rd, float imm) {
+        _instructions.Add($"FMOV {rd}, #{imm}");
+    }
+
+    public void Fadd(string rd, string rs1, string rs2) {
+        _instructions.Add($"FADD {rd}, {rs1}, {rs2}");
+    }
+
+    public void Fsub(string rd, string rs1, string rs2) {
+        _instructions.Add($"FSUB {rd}, {rs1}, {rs2}");
+    }
+    public void Fmul(string rd, string rs1, string rs2) {
+        _instructions.Add($"FMUL {rd}, {rs1}, {rs2}");
+    }
+    public void Fdiv(string rd, string rs1, string rs2) {
+        _instructions.Add($"FDIV {rd}, {rs1}, {rs2}");
+    }
+
+    public void Scvtf(string rd, string rs) {
+        _instructions.Add($"SCVTF {rd}, {rs}");
+    }
+
+    public void Mod(string rd, string rs1, string rs2) {
+        _instructions.Add($"UDIV X3, {rs1}, {rs2}");
+        _instructions.Add($"MUL X4, X3, {rs2}");
+        _instructions.Add($"SUB {rd}, {rs1}, X4");
+    }
 
     public void Push(string rs) {
         _instructions.Add($"STR {rs}, [SP, #-8]!");
@@ -188,6 +259,95 @@ public class ArmGenerator {
         _standardLibrary.Use("print_string");
         _instructions.Add($"MOV X0, {rs}");
         _instructions.Add($"BL print_string");
+    }
+
+    public void PrintBool(string rs) {
+        _standardLibrary.Use("print_bool");
+        _instructions.Add($"MOV X0, {rs}");
+        _instructions.Add($"BL print_bool");
+    }
+
+    public void PrintFloat(string rs) {
+        _standardLibrary.Use("print_double");
+        _instructions.Add($"BL print_double");
+    }
+
+    public void Cmp(string rs1, string rs2) {
+        _instructions.Add($"CMP {rs1}, {rs2}");
+    }
+
+    public void B(string label) {
+        _instructions.Add($"B {label}");
+    }
+
+    public void Equal(string label) {
+        _instructions.Add($"BEQ {label}");
+    }
+
+    public void NotEqual(string label) {
+        _instructions.Add($"BNE {label}");
+    }
+
+    public void LessThan(string label) {
+        _instructions.Add($"BLT {label}");
+    }
+    public void LessThanOrEqual(string label) {
+        _instructions.Add($"BLE {label}");
+    }
+
+    public void GreaterThan(string label) {
+        _instructions.Add($"BGT {label}");
+    }
+
+    public void GreaterThanOrEqual(string label) {
+        _instructions.Add($"BGE {label}");
+    }
+    
+    public void And(string rd, string rs1, string rs2) {
+        _instructions.Add($"AND {rd}, {rs1}, {rs2}");
+    }
+    public void Or(string rd, string rs1, string rs2) {
+        _instructions.Add($"ORR {rd}, {rs1}, {rs2}");
+    }
+    public void Not(string rd, string rs) {
+        _instructions.Add($"MVN {rd}, {rs}");
+    }
+
+    public void Fcmp(string rs1, string rs2) {
+        _instructions.Add($"FCMP {rs1}, {rs2}");
+    }
+
+    public void FEqual(string label) {
+        _instructions.Add($"BEQ {label}");
+    }
+    public void FNotEqual(string label) {
+        _instructions.Add($"BNE {label}");
+    }
+
+    public void FLessThan(string label) {
+        _instructions.Add($"BLO {label}");
+    }
+    public void FLessThanOrEqual(string label) {
+        _instructions.Add($"BLSE {label}");
+    }
+    public void FGreaterThan(string label) {
+        _instructions.Add($"BHI {label}");
+    }
+    public void FGreaterThanOrEqual(string label) {
+        _instructions.Add($"BHS {label}");
+    }
+
+    public void switchCase(string rs, int val, string label){
+        _instructions.Add($"CMP {rs}, #{val}");
+        _instructions.Add($"BEQ {label}");
+    }
+
+    public void p2align(int val) {
+        _instructions.Add($".p2align {val}");
+    }
+
+    public void Cbz(string rs, string label) {
+        _instructions.Add($"CBZ {rs}, {label}");
     }
 
     public void Comment(string comment) {
