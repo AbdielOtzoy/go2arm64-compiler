@@ -4,58 +4,84 @@ heap: .space 4096
 .global _start
 _start:
     adr x10, heap
-// Switch statement
+// Print statement
+MOV x0, #16
+SUB sp, sp, x0
+// visiting args
 // Constant: 5
 MOV x0, #5
 STR x0, [SP, #-8]!
-LDR x0, [SP], #8
-CMP x0, #2
-BEQ L1
-CMP x0, #5
-BEQ L2
-B L3
+// Constant: 6
+MOV x0, #6
+STR x0, [SP, #-8]!
+MOV x0, #32
+ADD sp, sp, x0
+MOV x0, #8
+SUB x0, sp, x0
+ADR x1, L1
+STR x1, [SP, #-8]!
+STR x29, [SP, #-8]!
+ADD x29, x0, xzr
+MOV x0, #24
+SUB sp, sp, x0
+// Calling function: sumar
+BL sumar
+// Function call finished: sumar
 L1:
-// Block statement
-// Print statement
-// Constant: 1
-MOV x0, #1
-STR x0, [SP, #-8]!
+MOV x4, #32
+SUB x4, x29, x4
+LDR x4, [x4, #0]
+MOV x1, #8
+SUB x1, x29, x1
+LDR x29, [x1, #0]
+MOV x0, #40
+ADD sp, sp, x0
+STR x4, [SP, #-8]!
+// Returning from function: sumar
+// Popping
 LDR x0, [SP], #8
 // Printing integer
-// Popping integer
 MOV X0, x0
 BL print_integer
-B L0
-L2:
-// Block statement
-// Break statement
-B L0
-// Print statement
-// Constant: 3
-MOV x0, #3
-STR x0, [SP, #-8]!
-LDR x0, [SP], #8
-// Printing integer
-// Popping integer
-MOV X0, x0
-BL print_integer
-B L0
-L3:
-// Block statement
-// Print statement
-// Constant: 2
-MOV x0, #2
-STR x0, [SP, #-8]!
-LDR x0, [SP], #8
-// Printing integer
-// Popping integer
-MOV X0, x0
-BL print_integer
-L0:
-// End of switch statement
 MOV x0, #0
 MOV x8, #93
 SVC #0
+
+
+
+ // Function Definitions
+// Function: sumar
+sumar:
+// Function prologue
+STR x30, [SP, #-8]!
+// Return statement
+MOV x0, #16
+SUB x0, x29, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+MOV x0, #24
+SUB x0, x29, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+// Adding
+LDR x1, [SP], #8
+LDR x0, [SP], #8
+ADD x0, x0, x1
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+MOV x1, #32
+SUB x1, x29, x1
+STR x0, [x1, #0]
+B L0
+// End of return statement
+L0:
+// Epilogue
+ADD x0, sp, xzr
+LDR x30, [x0, #0]
+BR x30
+// End of function: sumar
+// Popping object
+// Popping object
 
 
 

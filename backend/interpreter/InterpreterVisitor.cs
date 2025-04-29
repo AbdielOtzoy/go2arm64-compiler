@@ -118,51 +118,7 @@ public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
     // VisitFuncDeclaration
     public override ValueWrapper VisitFuncDeclaration(LanguageParser.FuncDeclarationContext context)
     {
-        if (context.ID(2) == null)
-        {
-            // se trata de una declaración de función normal
-            var foreign = new ForeignFunction(env, context);
-            if (context.ID(0).GetText() == "main")
-            {
-                // ignore
-                return defaultValue;
-            }
-            env.Declare(context.ID(0).GetText(), new FunctionValue(foreign, context.ID(0).GetText()), context.Start);
-            string type_func;
-            if (context.TYPE() != null)
-            {
-                type_func = context.TYPE().GetText();
-            }
-            else
-            {
-                type_func = "void";
-            }
-            symbols.Add(new Symbol(context.ID(0).GetText(), type_func, "function", context.Start));
-            return defaultValue;
-        }
-        else
-        {
-            // se declara una función asociada a un struct
-            var referenceName = context.ID(0).GetText();
-            var structName = context.ID(1).GetText();
-            var funcStructName = context.ID(2).GetText();
-
-            var structValue = env.Get(structName, context.Start);
-
-            if (structValue is not StructValue)
-            {
-                throw new SemanticError("Invalid struct", context.Start);
-            }
-
-            var foreign = new ForeignFunction(env, context);
-
-            var structInstance = ((StructValue)structValue).Struct;
-
-            var method = new ForeignFunction(env, context);
-            structInstance.AddMethod(funcStructName, method, referenceName);
-
-            return defaultValue;
-        }
+        return defaultValue;
     }
 
     // VisitSlicesDeclaration

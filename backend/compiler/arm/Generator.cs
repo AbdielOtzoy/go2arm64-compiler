@@ -1,17 +1,17 @@
 using System.Text;
 
 public class StackObject {
-    public enum StackObjectType { Int, Float, String, Bool }
+    public enum StackObjectType { Int, Float, String, Bool, Undefined }
     public StackObjectType Type { get; set; }
     public int Length { get; set; }
     public int Depth { get; set; }
     public string? Id { get; set; }
-    private String continueLabel = "";
-    private String breakLabel = "";
+    public int Offset { get; set; }
 }
 
 public class ArmGenerator {
-    public readonly List<string> _instructions = new List<string>();
+    public List<string> _instructions = new List<string>();
+    public List<string> funcInstructions = new List<string>();
     private readonly StandardLibrary _standardLibrary = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
@@ -35,6 +35,16 @@ public class ArmGenerator {
     // stack operations
     public void PushObject(StackObject obj) {
         _stack.Add(obj);
+    }
+
+    public void PopObject() {
+        Comment("Popping object");
+        _stack.RemoveAt(_stack.Count - 1);
+    }
+
+    public StackObject GetFrameLocal(int index) {
+        var obj = _stack.Where(o => o.Type == StackObject.StackObjectType.Undefined).ToList()[index];
+        return obj;
     }
 
     public void PushConstant(StackObject obj, object value) {
@@ -280,6 +290,14 @@ public class ArmGenerator {
         _instructions.Add($"B {label}");
     }
 
+    public void Br(string label) {
+        _instructions.Add($"BR {label}");
+    }
+
+    public void Bl(string label) {
+        _instructions.Add($"BL {label}");
+    }
+
     public void Equal(string label) {
         _instructions.Add($"BEQ {label}");
     }
@@ -350,6 +368,10 @@ public class ArmGenerator {
         _instructions.Add($"CBZ {rs}, {label}");
     }
 
+    public void Adr(string rd, string label) {
+        _instructions.Add($"ADR {rd}, {label}");
+    }
+
     public void Comment(string comment) {
         _instructions.Add($"// {comment}");
     }
@@ -368,6 +390,9 @@ public class ArmGenerator {
         foreach (var instruction in _instructions) {
             sb.AppendLine(instruction);
         }
+
+        sb.AppendLine("\n\n\n // Function Definitions");
+        funcInstructions.ForEach(i => sb.AppendLine(i));
 
         sb.AppendLine("\n\n\n // Standard Library");
         sb.AppendLine(_standardLibrary.GetFunctionDefinitions());

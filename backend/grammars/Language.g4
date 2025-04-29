@@ -8,7 +8,7 @@ varDeclaration: 'var' ID TYPE ('=' expr)?
     | ID ':=' expr
     | ID (TYPE | ID);
 
-funcDeclaration: 'func' ID '(' params? ')' TYPE? '{' declaration* '}'
+funcDeclaration: 'func' ID '(' params? ')' TYPE? '{'  declaration* '}'
    | 'func' '(' ID ID ')' ID '(' params? ')' TYPE? '{' declaration* '}';
 
 params: ID TYPE (',' ID TYPE)*;
