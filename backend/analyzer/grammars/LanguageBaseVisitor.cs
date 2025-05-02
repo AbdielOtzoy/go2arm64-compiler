@@ -86,6 +86,16 @@ public partial class LanguageBaseVisitor<Result> : AbstractParseTreeVisitor<Resu
 	/// <return>The visitor result.</return>
 	public virtual Result VisitParams([NotNull] LanguageParser.ParamsContext context) { return VisitChildren(context); }
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="LanguageParser.param"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitParam([NotNull] LanguageParser.ParamContext context) { return VisitChildren(context); }
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="LanguageParser.slicesDeclaration"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>

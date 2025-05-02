@@ -12,12 +12,33 @@ public class StandardLibrary
         if (function == "print_integer")
         {
             UsedSymbols.Add("minus_sign");
-            UsedSymbols.Add("newline");
         }
         else if (function == "print_double")
         {
             UsedSymbols.Add("dot_char");
             UsedSymbols.Add("zero_char");
+            UsedSymbols.Add("minus_sign");
+        }
+        else if (function == "print_rune")
+        {
+        }
+        else if (function == "print_string")
+        {
+        }
+        else if (function == "print_bool")
+        {
+            UsedSymbols.Add("true_string");
+            UsedSymbols.Add("false_string");
+        }
+        else if (function == "print_newline")
+        {
+            UsedSymbols.Add("newline");
+        }
+        else if (function == "print_array") 
+        {
+            UsedSymbols.Add("open_bracket");
+            UsedSymbols.Add("close_bracket");
+            UsedSymbols.Add("comma_space");
             UsedSymbols.Add("newline");
             UsedSymbols.Add("minus_sign");
         }
@@ -140,13 +161,6 @@ print_result:
     mov x2, x23                // Buffer length
     mov w8, #64                // Syscall write
     svc #0
-
-    // Print newline
-    mov x0, #1                 // fd = 1 (stdout)
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length = 1
-    mov w8, #64                // Syscall write
-    svc #0
     
     // Clean up and restore registers
     add sp, sp, #32            // Free buffer space
@@ -241,28 +255,12 @@ print_bool_string:
     mov x8, #64                // syscall: write (64 on ARM64)
     svc #0                     // Make the syscall
     
-    // Print newline
-    mov x0, #1                 // File descriptor: 1 for stdout
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length: 1 byte
-    mov x8, #64                // syscall: write (64 on ARM64)
-    svc #0                     // Make the syscall
-    
     // Restore registers
     ldp x21, x22, [sp], #16    // Restore additional registers
     ldp x19, x20, [sp], #16    // Restore callee-saved registers
     ldp x29, x30, [sp], #16    // Restore frame pointer and link register
     ret
 
-// String constants
-true_string:
-    .ascii ""true""            // The word true (no null terminator needed)
-    
-false_string:
-    .ascii ""false""           // The word false (no null terminator needed)
-    
-newline:
-    .ascii ""\n""              // Newline character
 " },
     {
         "print_double", @"
@@ -463,13 +461,6 @@ frac_print_result:
     mov x2, x23                // Buffer length
     mov w8, #64                // Syscall write
     svc #0
-
-    // Print newline
-    mov x0, #1
-    adr x1, newline
-    mov x2, #1
-    mov x8, #64
-    svc #0
     
     // Free buffer space
     add sp, sp, #32
@@ -495,13 +486,206 @@ exit_function:
     ldp x29, x30, [sp], #16
     ret
     "},
-    };
+    {
+        "print_rune", @"
+        //--------------------------------------------------------------
+// print_rune - Imprime un carácter en stdout
+//
+// Input:
+//   x0 - El valor del carácter a imprimir
+//--------------------------------------------------------------
+print_rune:
+    // Guardar los registros
+    stp     x29, x30, [sp, #-16]!  // Guardar frame pointer y link register
+    stp     x19, x20, [sp, #-16]!  // Guardar registros preservados
+    
+    // Guardar el carácter en un registro preservado
+    mov     x19, x0
+    
+    // Reservar espacio en la pila para el carácter
+    sub     sp, sp, #16
+    
+    // Guardar el carácter en el buffer de la pila
+    strb    w19, [sp]
+    
+    // Llamada al sistema write
+    mov     x0, #1                 // Descriptor de archivo: 1 para stdout
+    mov     x1, sp                 // Dirección del carácter a imprimir
+    mov     x2, #1                 // Longitud: 1 byte
+    mov     x8, #64                // Syscall: write (64 en ARM64)
+    svc     #0                     // Realizar la llamada al sistema
+    
+    // Liberar el espacio en la pila
+    add     sp, sp, #16
+
+    // Restaurar los registros
+    ldp     x19, x20, [sp], #16    // Restaurar registros preservados
+    ldp     x29, x30, [sp], #16    // Restaurar frame pointer y link register
+    ret                            // Retornar al llamador
+        "
+    },
+    {
+        "print_newline", @"
+        //--------------------------------------------------------------
+// print_newline - Imprime un salto de línea en stdout
+//
+// Input:
+//   Ninguno
+//--------------------------------------------------------------
+print_newline:
+    // Guardar los registros
+    stp     x29, x30, [sp, #-16]!  // Guardar frame pointer y link register
+    stp     x19, x20, [sp, #-16]!  // Guardar registros preservados
+    stp     x21, x22, [sp, #-16]!  // Guardar registros adicionales
+    stp     x23, x24, [sp, #-16]!  // Guardar registros adicionales
+    stp     x25, x26, [sp, #-16]!  // Guardar registros adicionales
+    stp     x27, x28, [sp, #-16]!  // Guardar registros adicionales
+    // Imprimir salto de línea
+    mov     x0, #1                 // Descriptor de archivo: 1 para stdout
+    adr     x1, newline            // Dirección del carácter de salto de línea
+    mov     x2, #1                 // Longitud: 1 byte
+    mov     x8, #64                // Syscall: write (64 en ARM64)
+    svc     #0                     // Realizar la llamada al sistema
+    // Restaurar los registros
+    ldp     x27, x28, [sp], #16    // Restaurar registros adicionales
+    ldp     x25, x26, [sp], #16    // Restaurar registros adicionales
+    ldp     x23, x24, [sp], #16    // Restaurar registros adicionales
+    ldp     x21, x22, [sp], #16    // Restaurar registros adicionales
+    ldp     x19, x20, [sp], #16    // Restaurar registros preservados
+    ldp     x29, x30, [sp], #16    // Restaurar frame pointer y link register
+    ret                            // Retornar al llamador
+        "},
+        {
+            "print_array", @"
+            //--------------------------------------------------------------
+// print_array - Imprime todos los elementos de un arreglo
+//
+// Input:
+//   x0 - Dirección base del arreglo (debe ser un arreglo de enteros .word)
+//   w1 - Número de elementos en el arreglo
+//
+// Ejemplo de uso:
+//   adr x0, numeros       // Cargar dirección del arreglo
+//   mov w1, #5            // Indicar que tiene 5 elementos
+//   bl print_array        // Llamar a la función
+//--------------------------------------------------------------
+print_array:
+    // Guardar registros
+    stp x29, x30, [sp, #-16]!  // Guardar frame pointer y link register
+    stp x19, x20, [sp, #-16]!  // Guardar registros que usaremos
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    
+    // Inicializar variables
+    mov x19, x0                // x19 = dirección base del arreglo
+    mov w20, w1                // w20 = número de elementos
+    mov w21, #0                // w21 = índice actual (inicia en 0)
+    mov w22, #4                // w22 = tamaño de cada elemento (.word = 4 bytes)
+    
+    // Imprimir corchete de apertura
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, open_bracket       // Dirección del corchete de apertura
+    mov x2, #1                 // Longitud = 1
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Verificar si el arreglo está vacío
+    cbz w20, empty_array
+    
+array_loop:
+    // Calcular dirección del elemento actual
+    umull x23, w21, w22        // x23 = índice * tamaño_elemento
+    add x23, x19, x23          // x23 = dirección_base + desplazamiento
+    
+    // Cargar el valor del elemento actual
+    ldr w0, [x23]              // w0 = valor del elemento
+    
+    // Guardar registros importantes antes de llamar a función
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    
+    // Imprimir el valor del elemento
+    bl print_integer
+    
+    // Restaurar registros después de la llamada
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    
+    // Incrementar índice
+    add w21, w21, #1
+    
+    // Verificar si hay más elementos para imprimir
+    cmp w21, w20
+    bge array_end              // Si índice >= tamaño, terminar
+    
+    // Imprimir separador (coma y espacio)
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, comma_space        // Dirección de "", ""
+    mov x2, #2                 // Longitud = 2
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Continuar el bucle
+    b array_loop
+    
+array_end:
+    // Imprimir corchete de cierre
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, close_bracket      // Dirección del corchete de cierre
+    mov x2, #1                 // Longitud = 1
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Imprimir salto de línea
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Dirección del salto de línea
+    mov x2, #1                 // Longitud = 1
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Restaurar registros y retornar
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+    
+empty_array:
+    // Si el arreglo está vacío, imprimir el corchete de cierre directamente
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, close_bracket      // Dirección del corchete de cierre
+    mov x2, #1                 // Longitud = 1
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Imprimir salto de línea
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Dirección del salto de línea
+    mov x2, #1                 // Longitud = 1
+    mov w8, #64                // Syscall write
+    svc #0
+    
+    // Restaurar registros y retornar
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+"
+        }
+        
+        };
 
     private readonly static Dictionary<string, string> Symbols = new Dictionary<string, string>
     {
         { "minus_sign", @"minus_sign: .ascii ""-""" },
         { "dot_char", @"dot_char: .ascii "".""" },
         { "zero_char", @"zero_char: .ascii ""0""" },
-        { "newline", @"newline: .ascii ""\n""" }
+        { "newline", @"newline: .ascii ""\n""" },
+        { "true_string", @"true_string: .ascii ""true""" },
+        { "false_string", @"false_string: .ascii ""false""" },
+        { "open_bracket", @"open_bracket: .ascii ""[""" },
+        { "close_bracket", @"close_bracket: .ascii ""]""" },
+        { "comma_space", @"comma_space: .ascii "", """ }
     };
 }

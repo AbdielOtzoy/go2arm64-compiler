@@ -29,10 +29,38 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitVarDeclaration(LanguageParser.VarDeclarationContext context){
-        var varName = context.ID(0).GetText();
+        var varName = context.ID().GetText();
         c.Comment("Variable declaration: " + varName);
         Console.WriteLine("Variable declaration: " + varName);
-        Visit(context.expr());
+
+        if (context.expr() == null) {
+            string type = context.TYPE().GetText();
+            c.Comment("Variable type: " + type);
+            var typeObj = type switch {
+                "int" => c.IntObject(),
+                "float64" => c.FloatObject(),
+                "string" => c.StringObject(),
+                "bool" => c.BoolObject(),
+                "rune" => c.RuneObject(),
+                _ => throw new ArgumentException("Invalid variable type")
+            };
+
+            var value = type switch {
+                "int" => (object)0,
+                "float64" => (object)0.0f,
+                "string" => (object)"\"\"",
+                "bool" => (object)false,
+                "rune" => (object)'0',
+                _ => throw new ArgumentException("Invalid variable type")
+            };
+
+            c.PushConstant(typeObj, value.ToString());
+            Console.WriteLine("Initialized variable: " + varName + " with value: " + value.ToString());
+
+        } else {
+            Visit(context.expr());
+        }
+
 
         if (insideFunction != null) {
             var localObject = c.GetFrameLocal(framePointerOffset);
@@ -48,6 +76,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             return null;
         }
 
+        Console.WriteLine("Variable: " + varName);
         c.TagObject(varName);
         return null;
     }
@@ -57,7 +86,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         int paramsOffset = 0;
 
         if (context.@params() != null) {
-            paramsOffset = context.@params().ID().Length;
+            paramsOffset = context.@params().param().Length;
         } 
 
         FrameVisitor frameVisitor = new FrameVisitor(baseOffset + paramsOffset);
@@ -76,6 +105,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         string funcName = context.ID(0).GetText();
         StackObject.StackObjectType funcType = GetType(context.TYPE()?.GetText() ?? "undefined");
 
+        Console.WriteLine("total frame size: " + totalFrameSize);
 
         functions.Add(funcName, new FunctionMetadata
         {
@@ -90,13 +120,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         if (context.@params() != null)
         {
         var paramCounter = 0;
-        foreach (var param in context.@params().ID())
+        foreach (var param in context.@params().param())
         {
-            Console.WriteLine("Param: " + param.GetText());
+            Console.WriteLine("Param: " + param.ID().GetText());
             c.PushObject(new StackObject
             {
-                Type = GetType(context.@params().TYPE(paramCounter).GetText()),
-                Id = param.GetText(),
+                Type = GetType(context.@params().param(paramCounter).TYPE().GetText()),
+                Id = param.ID().GetText(),
                 Offset = paramCounter + baseOffset,
                 Length = 8
             });
@@ -120,12 +150,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         returnLabel = c.GetLabel();
 
-        c.Comment("Function: " + funcName);
+        c.Comment("Function declaration: " + funcName);
         c.SetLabel(funcName);
 
-        // Al inicio de la función, justo después de c.SetLabel(funcName)
-        c.Comment("Function prologue");
-        c._instructions.Add("STR x30, [SP, #-8]!");
+        // // Al inicio de la función, justo después de c.SetLabel(funcName)
+        // c.Comment("Function prologue");
+        // c._instructions.Add("STR x30, [SP, #-8]!");
         
 
         foreach (var declaration in context.declaration())
@@ -136,7 +166,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         c.SetLabel(returnLabel);
 
         c.Comment("Epilogue");
-        c.Add(Register.X0, Register.SP, Register.XZR);
+        c.Add(Register.X0, Register.FP, Register.XZR);
         c.Ldr(Register.LR, Register.X0);
         c.Br(Register.LR);
 
@@ -178,6 +208,23 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitSlicesDeclaration(LanguageParser.SlicesDeclarationContext context){
+        var sliceName = context.ID().GetText();
+        var sliceType = context.TYPE().GetText();
+        string[] slicesElements = new string[context.exprList().expr().Length];
+        foreach(var element in context.exprList().expr()) {
+            var sliceElement = element.GetText();
+            slicesElements[Array.IndexOf(context.exprList().expr(), element)] = sliceElement;
+
+        }
+        c.dataSection += sliceName + ": .word " + string.Join(", ", slicesElements) + "\n";
+
+        // Guardar también el tamaño del slice
+        c.dataSection += sliceName + "_size: .word " + slicesElements.Length + "\n";
+
+        var arrayObj = c.ArrayObject();
+        c.PushConstant(arrayObj, sliceName);
+        c.TagObject(sliceName);
+
         return null;
     }
 
@@ -202,67 +249,89 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
     public override Object? VisitPrintStmt(LanguageParser.PrintStmtContext context){
         c.Comment("Print statement");
-        Object? expresion = Visit(context.expr());
-
-        //try convert stack objects to registers
-        if (expresion is StackObject stackObj)
-        {
-            Console.WriteLine("Stack object: " + stackObj.Type);
-            if (stackObj.Type == StackObject.StackObjectType.Float)
-            {
-                var popValue = c.PopObject(Register.D0);
-                c.Comment("Printing float");
-                c.Comment("Popping float");
-                c.PrintFloat(Register.D0);
-                return null;
-            }
-            else if (stackObj.Type == StackObject.StackObjectType.Bool)
-            {
-                var popValue = c.PopObject(Register.X0);
-                c.Comment("Printing boolean");
-                c.Comment("Popping boolean");
-                c.PrintBool(Register.X0);
-                return null;
-            }
-            else if (stackObj.Type == StackObject.StackObjectType.Int)
-            {
-                var popValue = c.PopObject(Register.X0);
-                c.Comment("Printing integer");
-                c.Comment("Popping integer");
-                c.PrintInteger(Register.X0);
-                return null;
-            }
-            else if (stackObj.Type == StackObject.StackObjectType.String)
-            {
-                var popValue = c.PopObject(Register.X0);
-                c.Comment("Printing string");
-                c.Comment("Popping string");
-                c.PrintString(Register.X0);
-                return null;
-            }
-
-            return null;
-        }
-
-        c.Comment("Popping");
-        var value = c.PopObject(Register.X0);
-        if(value.Type == StackObject.StackObjectType.Int) {
-            c.Comment("Printing integer");
-            c.PrintInteger(Register.X0);
-        }
-        else if (value.Type == StackObject.StackObjectType.String) {
-            c.Comment("Printing string");
-            c.PrintString(Register.X0);
-        }
-        else if (value.Type == StackObject.StackObjectType.Bool) {
-            c.Comment("Printing boolean");
-            c.PrintBool(Register.X0);
-        }
-        else if (value.Type == StackObject.StackObjectType.Float) {
-            c.Comment("Printing float");
-            c.PrintFloat(Register.D0);
-        }
+        Console.WriteLine("exprlist: " + context.exprList().expr().Length);
         
+        for (int i = 0; i < context.exprList().expr().Length; i++)
+        {  
+            Object? expresion = Visit(context.exprList().expr(i));
+            Console.WriteLine("Expression: " + expresion);
+            c.Comment("Printing multiple expressions");
+             //try convert stack objects to registers
+            if (expresion is StackObject stackObj)
+            {
+                Console.WriteLine("Stack object: " + stackObj.Type);
+                if (stackObj.Type == StackObject.StackObjectType.Float)
+                {
+                    var popValue = c.PopObject(Register.D0);
+                    c.Comment("Printing float");
+                    c.Comment("Popping float");
+                    c.PrintFloat(Register.D0);
+                    continue;
+                }
+                else if (stackObj.Type == StackObject.StackObjectType.Bool)
+                {
+                    var popValue = c.PopObject(Register.X0);
+                    c.Comment("Printing boolean");
+                    c.Comment("Popping boolean");
+                    c.PrintBool(Register.X0);
+                    continue;
+                }
+                else if (stackObj.Type == StackObject.StackObjectType.Int)
+                {
+                    var popValue = c.PopObject(Register.X0);
+                    c.Comment("Printing integer");
+                    c.Comment("Popping integer");
+                    c.PrintInteger(Register.X0);
+                    continue;
+                }
+                else if (stackObj.Type == StackObject.StackObjectType.String)
+                {
+                    var popValue = c.PopObject(Register.X0);
+                    c.Comment("Printing string");
+                    c.Comment("Popping string");
+                    c.PrintString(Register.X0);
+                    continue;
+                }
+                else if (stackObj.Type == StackObject.StackObjectType.Rune)
+                {
+                    var popValue = c.PopObject(Register.X0);
+                    c.Comment("Printing rune");
+                    c.Comment("Popping rune");
+                    c.PrintRune(Register.X0);
+                    continue;
+                } else if (stackObj.Type == StackObject.StackObjectType.Array) {
+                    var popValue = c.PopObject(Register.X0);
+                    c.Comment("Printing array");
+                    c.Comment("Popping array");
+                    c.PrintArray(stackObj.Id);
+                    continue;
+                }
+
+                continue;
+            }
+
+            c.Comment("Popping");
+            var value = c.PopObject(Register.X0);
+            if(value.Type == StackObject.StackObjectType.Int) {
+                c.Comment("Printing integer");
+                c.PrintInteger(Register.X0);
+            }
+            else if (value.Type == StackObject.StackObjectType.String) {
+                c.Comment("Printing string");
+                c.PrintString(Register.X0);
+            }
+            else if (value.Type == StackObject.StackObjectType.Bool) {
+                c.Comment("Printing boolean");
+                c.PrintBool(Register.X0);
+            }
+            else if (value.Type == StackObject.StackObjectType.Float) {
+                c.Comment("Printing float");
+                c.PrintFloat(Register.D0);
+            }
+            continue;
+        }
+              
+        c.PrintNewLine();
         return null;
     }
 
@@ -470,7 +539,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitReturnStmt(LanguageParser.ReturnStmtContext context){
         c.Comment("Return statement");
         if (context.expr() == null) {
-            c.Br(returnLabel);
+            c.B(returnLabel);
             return null;
         }
 
@@ -500,6 +569,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
     public override Object? VisitIdentifier(LanguageParser.IdentifierContext context){
         var id = context.ID().GetText();
+        Console.WriteLine("Identifier: " + id);
         var (offset, obj) = c.GetObject(id);
 
         if(insideFunction != null) {
@@ -518,13 +588,41 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         c.Ldr(Register.X0, Register.X0);
         c.Push(Register.X0);
         var newObject = c.CloneObject(obj);
-        newObject.Id = null;
+        if (newObject.Type != StackObject.StackObjectType.Array) newObject.Id = null;
+
         c.PushObject(newObject);
         return newObject;
     }
 
     public override Object? VisitIndex(LanguageParser.IndexContext context){
-        return null;
+        var id = context.ID().GetText();
+        c.Comment("Cargar la dirección base del arreglo en X5");
+        c.Adr(Register.X5, id);
+        c.Comment("Cargar tamaño del arreglo en X6");
+        c.Adr(Register.X6, id + "_size");
+        c.Ldr(Register.X6, Register.X6);
+
+        c.Comment("Cargar el índice en X7");
+        string index = context.expr().GetText();
+        c.Mov(Register.X7, int.Parse(index));
+        c.Comment("Tamaño de cada elemento en X8");
+        c.Mov(Register.X9, int.Parse(4.ToString()));
+        c.Comment("Desplazamiento = indice*tamaño");
+        c.Mul(Register.X7, Register.X7, Register.X9);
+        c.Comment("Dirección del elemento = dirección base + desplazamiento");
+        c.Add(Register.X7, Register.X5, Register.X7);
+        c.Comment("Cargar el elemento en w0");
+        c.Ldr(Register.W0, Register.X7);
+
+        c.Comment("Poner el elemento en la pila");
+        c.Push(Register.X0);
+
+        var intObj = c.IntObject();
+        c.PushObject(intObj);
+
+        Console.WriteLine("Index: " + index);
+
+        return intObj;
     }
 
     public override Object? VisitMatrixIndex(LanguageParser.MatrixIndexContext context){
@@ -548,16 +646,48 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitAtoiMethod(LanguageParser.AtoiMethodContext context){
-        return null;
+        var value = context.expr().GetText();
+        // quitar comillas
+        value = value.Trim('"');
+
+        int intValue = int.Parse(value);
+        var intObj = c.IntObject();
+        c.PushConstant(intObj, intValue.ToString());
+        return intObj; 
     }
 
     public override Object? VisitParseFloatMethod(LanguageParser.ParseFloatMethodContext context){
-        return null;
+        var value = context.expr().GetText();
+        // quitar comillas
+        value = value.Trim('"');
+        float floatValue = float.Parse(value);
+        var floatObj = c.FloatObject();
+        c.PushConstant(floatObj, floatValue.ToString());
+        return floatObj;
     }
 
     public override Object? VisitTypeOfMethod(LanguageParser.TypeOfMethodContext context){
-        return null;
+        string name = context.ID().GetText();
+        var (offset, obj) = c.GetObject(name);
+        Console.WriteLine("Typ: " + obj.Type);
+
+        var stringObj = c.StringObject();
+
+        var typeString = obj.Type switch {
+            StackObject.StackObjectType.Int => "int",
+            StackObject.StackObjectType.Float => "float64",
+            StackObject.StackObjectType.String => "string",
+            StackObject.StackObjectType.Bool => "bool",
+            StackObject.StackObjectType.Rune => "rune",
+            StackObject.StackObjectType.Undefined => "undefined",
+            _ => throw new ArgumentException("Invalid variable type")
+        };
+
+        c.PushConstant(stringObj, typeString);
+
+        return stringObj;
     }
+
 
     public override Object? VisitNumber(LanguageParser.NumberContext context){
         var value = context.INT().GetText();
@@ -576,7 +706,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitRune(LanguageParser.RuneContext context){
-        return null;
+        var value = context.RUNE().GetText();
+        c.Comment("Constant: " + value);
+        var runeObj = c.RuneObject();
+        c.PushConstant(runeObj, value);
+        return runeObj;
     }
 
     public override Object? VisitBool(LanguageParser.BoolContext context){
@@ -596,7 +730,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         Object? left = Visit(context.expr(0));
         Object? right = Visit(context.expr(1));
 
-        c.Comment("Multiplying");
+        Console.WriteLine("Operation: " + operation);
+        Console.WriteLine("Left: " + left);
+        Console.WriteLine("Right: " + right);
+
+        c.Comment("Multiplying or dividing");
         // try convert stack objects to registers
         if (left is StackObject leftStack && right is StackObject rightStack)
         {
@@ -652,7 +790,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                     c.Fdiv(Register.D0, Register.D0, Register.D1);
                 }
                 c.Push(Register.D0);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.CloneObject(right1));
                 return c.FloatObject();
             }
             else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Int)
@@ -752,7 +890,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                     c.Fsub(Register.D0, Register.D0, Register.D1);
                 }
                 c.Push(Register.D0);
-                c.PushObject(c.CloneObject(left));
+                c.PushObject(c.CloneObject(right));
                 return c.FloatObject();
             }
             else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Int)
@@ -827,7 +965,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
 
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Float)
@@ -862,7 +1000,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Int && rightStack.Type == StackObject.StackObjectType.Float)
             {
@@ -895,7 +1033,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Int)
             {
@@ -929,7 +1067,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             }
         }
@@ -972,12 +1110,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitNot(LanguageParser.NotContext context){
+        Console.WriteLine("Not operation");
         Object? left = Visit(context.expr());
         c.Comment("Logical NOT operation");
 
         // try convert stack objects to registers
         if (left is StackObject leftStack)
-        {
+        {   
             Console.WriteLine("Left: " + leftStack.Type);
 
             if (leftStack.Type == StackObject.StackObjectType.Bool)
@@ -1071,7 +1210,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
             
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Float)
@@ -1096,7 +1235,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Int && rightStack.Type == StackObject.StackObjectType.Float)
             {
@@ -1121,7 +1260,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Float && rightStack.Type == StackObject.StackObjectType.Int)
             {
@@ -1146,7 +1285,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             } else if (leftStack.Type == StackObject.StackObjectType.Bool && rightStack.Type == StackObject.StackObjectType.Bool)
             {
@@ -1170,7 +1309,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.Mov(Register.X0, 1);
                 c.Push(Register.X0);
                 c.SetLabel(endLabel);
-                c.PushObject(c.CloneObject(left1));
+                c.PushObject(c.BoolObject());
                 return c.BoolObject();
             }
             
@@ -1266,7 +1405,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         c.Comment("Returning from function: " + funcName);
 
-        return null;
+        return new StackObject{
+            Type = functions[funcName].ReturnType,
+            Id = null,
+            Offset = 0,
+            Length = 8
+        };
 
     }
 }

@@ -33,6 +33,11 @@ public static class Register
     public static string X29 => "x29";
     public static string X30 => "x30";
 
+    // 32 bit registers
+    public static string W0 => "w0";
+    public static string W1 => "w1";
+    public static string W2 => "w2";
+
     // Special registers
     public static string SP => "sp";
     public static string PC => "pc";

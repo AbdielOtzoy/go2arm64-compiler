@@ -12,6 +12,11 @@ public static class Utils {
         return resultado;
     }
 
+    public static byte StringToByte(string str) {
+
+        return (byte)str[1];
+    }
+
    public static (string, string) GetFloatBitParts(float number)
 {
     // Convertimos el float a su representación binaria (IEEE 754) como uint

@@ -14,38 +14,12 @@ public class ForeignFunction : Invocable
     
 
     public int Arity(){
-        if(context.@params() == null) {
-            return 0;
-        }
-        return context.@params().ID().Length;
+        return 1;
     }
     
     public ValueWrapper Invoke(List<ValueWrapper> args, InterpreterVisitor visitor)
     {
-        var newEnv = new Enviorment(clousure);
-        var beforeCallEnv = visitor.env;
-        visitor.env = newEnv;
 
-        if(context.@params() != null) {
-            for (int i = 0; i < context.@params().ID().Length; i++)
-            {
-                newEnv.Declare(context.@params().ID(i).GetText(), args[i], null);
-            }
-        }
-
-        try
-        {
-            foreach(var statement in context.declaration()) {
-            visitor.Visit(statement);
-        }
-        }
-        catch (ReturnException e)
-        {
-            visitor.env = beforeCallEnv;
-            return e.Value;
-        }
-
-        visitor.env = beforeCallEnv;
         return visitor.defaultValue;
     }
 

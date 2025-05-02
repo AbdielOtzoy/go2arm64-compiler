@@ -63,6 +63,12 @@ public interface ILanguageVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitParams([NotNull] LanguageParser.ParamsContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="LanguageParser.param"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitParam([NotNull] LanguageParser.ParamContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="LanguageParser.slicesDeclaration"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

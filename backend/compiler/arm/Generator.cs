@@ -1,7 +1,7 @@
 using System.Text;
 
 public class StackObject {
-    public enum StackObjectType { Int, Float, String, Bool, Undefined }
+    public enum StackObjectType { Int, Float, String, Bool, Undefined, Rune, Array }
     public StackObjectType Type { get; set; }
     public int Length { get; set; }
     public int Depth { get; set; }
@@ -12,6 +12,7 @@ public class StackObject {
 public class ArmGenerator {
     public List<string> _instructions = new List<string>();
     public List<string> funcInstructions = new List<string>();
+    public string dataSection = "";
     private readonly StandardLibrary _standardLibrary = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
@@ -54,7 +55,7 @@ public class ArmGenerator {
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.Float:
-                long floatBits = BitConverter.ToInt64(BitConverter.GetBytes(double.Parse(value.ToString())), 0);
+                long floatBits = BitConverter.DoubleToInt64Bits(double.Parse(value.ToString()));
 
                 short[] floatParts = new short[4];
                 for (int i = 0; i < 4; i++) {
@@ -83,6 +84,14 @@ public class ArmGenerator {
                 break;
             case StackObject.StackObjectType.Bool:
                 Mov(Register.X0, value.ToString() == "true" ? 1 : 0);
+                Push(Register.X0);
+                break;
+            case StackObject.StackObjectType.Rune:
+                Console.WriteLine("Pushing rune: " + value);
+                var runeValue =  Utils.StringToByte((string)value);
+                Console.WriteLine("Pushing rune value: " + runeValue);
+                
+                Mov(Register.X0, runeValue);
                 Push(Register.X0);
                 break;
         }
@@ -125,6 +134,24 @@ public class ArmGenerator {
             Id = null
         };
     }
+
+    public StackObject RuneObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.Rune,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+
+    public StackObject ArrayObject() {
+        return new StackObject {
+            Type = StackObject.StackObjectType.Array,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    } 
 
     public StackObject CloneObject(StackObject obj) {
         return new StackObject {
@@ -271,6 +298,12 @@ public class ArmGenerator {
         _instructions.Add($"BL print_string");
     }
 
+    public void PrintRune(string rs) {
+        _standardLibrary.Use("print_rune");
+        _instructions.Add($"MOV X0, {rs}");
+        _instructions.Add($"BL print_rune");
+    }
+
     public void PrintBool(string rs) {
         _standardLibrary.Use("print_bool");
         _instructions.Add($"MOV X0, {rs}");
@@ -280,6 +313,20 @@ public class ArmGenerator {
     public void PrintFloat(string rs) {
         _standardLibrary.Use("print_double");
         _instructions.Add($"BL print_double");
+    }
+
+    public void PrintArray(string name) {
+        _standardLibrary.Use("print_array");
+        _standardLibrary.Use("print_integer");
+        _instructions.Add($"ADR X0, {name}");
+        _instructions.Add($"ADR X1, {name}_size");
+        _instructions.Add($"LDR W1, [X1]");
+        _instructions.Add($"BL print_array");
+    }
+
+    public void PrintNewLine() {
+        _standardLibrary.Use("print_newline");
+        _instructions.Add($"BL print_newline");
     }
 
     public void Cmp(string rs1, string rs2) {
@@ -328,7 +375,7 @@ public class ArmGenerator {
         _instructions.Add($"ORR {rd}, {rs1}, {rs2}");
     }
     public void Not(string rd, string rs) {
-        _instructions.Add($"MVN {rd}, {rs}");
+        _instructions.Add($"EOR {rd}, {rs}, #1");
     }
 
     public void Fcmp(string rs1, string rs2) {
@@ -346,7 +393,7 @@ public class ArmGenerator {
         _instructions.Add($"BLO {label}");
     }
     public void FLessThanOrEqual(string label) {
-        _instructions.Add($"BLSE {label}");
+        _instructions.Add($"BLE {label}");
     }
     public void FGreaterThan(string label) {
         _instructions.Add($"BHI {label}");
@@ -380,6 +427,7 @@ public class ArmGenerator {
         var sb = new StringBuilder();
         sb.AppendLine(".data");
         sb.AppendLine("heap: .space 4096");
+        sb.AppendLine(dataSection);
         sb.AppendLine(".text");
         sb.AppendLine(".global _start");
         sb.AppendLine("_start:");

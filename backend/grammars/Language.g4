@@ -2,16 +2,17 @@ grammar Language;
 
 program: (declaration NL?)*;
 
-declaration: varDeclaration | statement | slicesDeclaration | funcDeclaration | structDeclaration | matrixDeclaration;
+declaration: slicesDeclaration | varDeclaration | statement | funcDeclaration | structDeclaration | matrixDeclaration;
 
 varDeclaration: 'var' ID TYPE ('=' expr)?
-    | ID ':=' expr
-    | ID (TYPE | ID);
+    | ID ':=' expr;
 
 funcDeclaration: 'func' ID '(' params? ')' TYPE? '{'  declaration* '}'
    | 'func' '(' ID ID ')' ID '(' params? ')' TYPE? '{' declaration* '}';
 
-params: ID TYPE (',' ID TYPE)*;
+params:param (','param)*;
+
+param: ID TYPE;
 
 slicesDeclaration: ID ':=' '[]' TYPE '{' exprList? '}'  
     | 'var' ID '[]' TYPE ;                               
@@ -26,7 +27,7 @@ structDeclaration: 'type' ID  'struct' '{' structBody* '}';
 structBody: varDeclaration; 
 
 statement: expr                                             # ExprStmt
-    | 'fmt.Println' '(' expr ')'                        # PrintStmt
+    | 'fmt.Println' '(' exprList ')'                        # PrintStmt
     | '{' declaration* '}'                                  # BlockStmt
     | 'if' expr  statement ('else' statement)?              # IfStmt
     | 'switch' expr  '{' caseClauseStmt* '}'                # SwitchStmt

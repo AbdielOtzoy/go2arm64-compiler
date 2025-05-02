@@ -77,7 +77,7 @@ public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
     // VisitVarDeclaration
     public override ValueWrapper VisitVarDeclaration(LanguageParser.VarDeclarationContext context)
     {
-        string name = context.ID(0).GetText();
+        string name = context.ID().GetText();
         // si no tiene valor asignado, se le asigna un valor por defecto segun el tipo
         if (context.expr() == null)
         {
@@ -220,8 +220,8 @@ public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
             if (field.varDeclaration() != null)
             {
                 var varDeclaration = field.varDeclaration();
-                Console.WriteLine("Field: " + varDeclaration.ID(0).GetText());
-                fields.Add(varDeclaration.ID(0).GetText(), varDeclaration);
+                Console.WriteLine("Field: " + varDeclaration.ID().GetText());
+                fields.Add(varDeclaration.ID().GetText(), varDeclaration);
             }
 
         }

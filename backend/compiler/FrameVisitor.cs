@@ -24,7 +24,7 @@ public class FrameVisitor : LanguageBaseVisitor<Object?> {
         
     }
     public override Object? VisitVarDeclaration(LanguageParser.VarDeclarationContext context){
-        string name = context.ID(0).GetText();
+        string name = context.ID().GetText();
         
         Frame.Add(new FrameElement(name, BaseOffset + LocalOffset));
         LocalOffset += 1;
