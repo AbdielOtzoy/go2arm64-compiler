@@ -14,6 +14,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     private Dictionary<string, FunctionMetadata> functions = new Dictionary<string, FunctionMetadata>();
     private string? insideFunction = null;
     private int framePointerOffset = 0;
+    public Dictionary<string, string[]> slices = new Dictionary<string, string[]>();
 
     public CompilerVisitor()
     {
@@ -216,6 +217,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             slicesElements[Array.IndexOf(context.exprList().expr(), element)] = sliceElement;
 
         }
+        slices.Add(sliceName, slicesElements);  
         c.dataSection += sliceName + ": .word " + string.Join(", ", slicesElements) + "\n";
 
         // Guardar también el tamaño del slice
@@ -638,11 +640,43 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     }
 
     public override Object? VisitLenMethod(LanguageParser.LenMethodContext context){
-        return null;
+        var sliceSizeName = context.expr().GetText() + "_size";
+        c.Comment("Cargar el tamaño del slice en X0");
+        c.Adr(Register.X0, sliceSizeName);
+        c.Ldr(Register.X0, Register.X0);
+        c.Comment("Poner el tamaño del slice en la pila");
+        c.Push(Register.X0);
+        var intObj = c.IntObject();
+        c.PushObject(intObj);
+        Console.WriteLine("Slice size: " + Register.X0);
+        return intObj;
     }
 
     public override Object? VisitAppendMethod(LanguageParser.AppendMethodContext context){
+        var id = context.ID().GetText();
+        var value = context.expr().GetText();
+        c.Comment("Cargar la dirección base del arreglo en X5");
+        c.Adr(Register.X5, id);
+        c.Comment("Cargar tamaño del arreglo en X6");
+        c.Adr(Register.X6, id + "_size");
+        c.Ldr(Register.X2, Register.X6);
+
+        c.Comment("Calcular la dirección del nuevo elemento");
+        c.Mov(Register.X7, 4);
+        c.Mul(Register.X7, Register.X2, Register.X7);
+        c.Add(Register.X7, Register.X5, Register.X7);
+
+        c.Comment("Añadir elemento al arreglo");
+        c.Mov(Register.X8, int.Parse(value));   
+        c.Str(Register.X8, Register.X7);
+
+        c.Comment("Actualizar el tamaño del arreglo");
+        c.Mov(Register.X3, 1);
+        c.Add(Register.X2, Register.X2, Register.X3);
+        c.Str(Register.X2, Register.X6);
+
         return null;
+
     }
 
     public override Object? VisitAtoiMethod(LanguageParser.AtoiMethodContext context){
@@ -1136,6 +1170,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var assignee = context.expr(0);
         Console.WriteLine("Assignee: " + assignee.GetText());
 
+        if(slices.ContainsKey(assignee.GetText())) {
+            Visit(context.expr(1));
+            Console.WriteLine("slices append: " + assignee.GetText());
+            c.PushObject(c.ArrayObject());
+            return null;
+        }
+
         if( assignee is LanguageParser.IdentifierContext idContext) {
         Console.WriteLine("Assignee: " + assignee.GetText());
             string varName = idContext.ID().GetText();
@@ -1159,6 +1200,18 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             
             c.Push(Register.X0);
             c.PushObject(c.CloneObject(valueObj));
+            return null;
+        } else if (assignee is LanguageParser.IndexContext indexContext) {
+            string sliceName = indexContext.ID().GetText();
+            var index = indexContext.expr().GetText();  
+            var value = context.expr(1);
+            c.Comment("Cargar dirección base del slice en X5");
+            c.Adr(Register.X5, sliceName);
+            c.Comment("Cargar el valor a asignar en X6");
+            c.Mov(Register.X6, int.Parse(value.GetText()));
+            c.Comment("Almacenar x6 en dirección base + índice");
+            c.Str(Register.X6, Register.X5, int.Parse(index)*4);
+
             return null;
         }
 
