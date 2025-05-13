@@ -35,10 +35,13 @@ cd ../frontend
 pnpm i
 pnpm run dev
 ```
-🧠 Requisitos Previos
+### 🧠 Requisitos Previos
 .NET SDK
 
 Node.js y pnpm
 
 ANTLR4 (opcional si ya están generados los analizadores)
 
+
+### 🧠 ¿Por qué ARM64?
+ARM64 es una arquitectura ampliamente usada en procesadores móviles, dispositivos embebidos y ahora también en servidores y computadoras modernas (como Apple Silicon). Este compilador ayuda a entender cómo se traduce un lenguaje como Go a instrucciones reales que puede ejecutar un procesador ARM moderno.
