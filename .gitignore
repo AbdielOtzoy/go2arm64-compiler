@@ -1,0 +1,8 @@
+bin/
+obj/
+backend/output/*
+!backend/output/run.sh
+!backend/output/hello-world.s
+*.core
+node_modules/
+.next/
