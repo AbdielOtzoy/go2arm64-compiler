@@ -1,47 +1,42 @@
-# 🧬 Compilador con ANTLR4 + C# (.NET) + Next.js
+# go2arm64 — a compiler from a Go subset to ARM64 assembly
 
-Este proyecto es un compilador educativo e interactivo que combina la potencia de **ANTLR4** para el análisis léxico y sintáctico, con la robustez de **C# y .NET** para el procesamiento backend, y una interfaz moderna hecha con **Next.js**.
+A compiler for **GoLight**, a subset of Go, that emits AArch64 (ARM64) assembly. The assembly is built with GNU binutils and runs on QEMU. A Next.js web editor sends code to a C#/.NET API that parses it with ANTLR4 and returns the generated assembly.
 
-> 📌 Ideal para quienes desean entender cómo funciona un compilador desde su gramática hasta su ejecución, todo en un entorno visual y accesible desde el navegador.
+Course project for *Organización de Lenguajes y Compiladores 2* (Universidad de San Carlos de Guatemala, 1st semester 2025). Individual work. It continues my [GoLight interpreter](https://github.com/AbdielOtzoy/OLC2_Proyecto1_202300350), which runs the same language with a tree-walking interpreter.
 
----
+## How it works
 
-## 🚀 ¿Qué hace este proyecto?
-
-- Analiza código fuente escrito por el usuario.
-- Genera árboles de sintaxis abstracta (AST) utilizando ANTLR4.
-- Reporta errores léxicos y sintácticos.
-- Muestra el resultado en una interfaz web responsiva.
-- Permite experimentar y modificar reglas gramaticales.
-
----
-
-## ⚙️ ¿Cómo ejecutarlo?
-
-### 1. Clona el repositorio
-```bash
-git clone https://github.com/tu-usuario/nombre-del-repo.git
-cd nombre-del-repo
+```text
+Next.js editor ──POST /compile──► ASP.NET Core API
+                                     │
+                                     ├─ ANTLR4 lexer + parser (Language.g4) ──► parse tree
+                                     ├─ FrameVisitor   computes stack frames for functions
+                                     └─ CompilerVisitor walks the tree ──► arm/Generator ──► .s file
+                                                                              │
+                                     aarch64-linux-gnu-as / ld ──► qemu-aarch64 (see backend/output/run.sh)
 ```
 
-### 2. Ejecuta el Backend (.NET + ANTLR4)
+- **Grammar:** [`backend/grammars/Language.g4`](backend/grammars/Language.g4). It covers variables and `:=`, `int`/`float64`/`string`/`bool`/`rune`, `if`/`switch`/`for`/`for range`, `break`/`continue`, functions, slices and matrices, structs, and built-ins such as `append`, `len`, `strconv.Atoi`, `strings.Join` and `slices.Index`.
+- **Code generation:** [`backend/compiler`](backend/compiler). It manages the stack and registers (`arm/Registers.cs`), emits instructions (`arm/Generator.cs`), and includes a small runtime written in assembly that prints integers, floats, booleans, runes, strings and arrays (`arm/Std.cs`). Program output goes through Linux syscalls (`svc #0`).
+- **Errors:** the API reports lexical, syntax and semantic errors with line and column.
+- **AST view:** the editor can draw the parse tree as SVG through ANTLR Lab.
+
+## Run it
+
+Requirements: .NET 9 SDK, Node.js with pnpm, and `aarch64-linux-gnu` binutils plus `qemu-user` to run the output.
+
 ```bash
-dotnet watch run
+# API
+cd backend && dotnet watch run
+
+# Web editor
+cd frontend && pnpm install && pnpm dev
 ```
 
-### 3. Ejecuta el Frontend (Next.js con pnpm)
-```bash
-cd ../frontend
-pnpm i
-pnpm run dev
-```
-### 🧠 Requisitos Previos
-.NET SDK
+To run a generated program, save the assembly as `backend/output/hello-world.s` and run `backend/output/run.sh`.
 
-Node.js y pnpm
+## Docs (Spanish)
 
-ANTLR4 (opcional si ya están generados los analizadores)
-
-
-### 🧠 ¿Por qué ARM64?
-ARM64 es una arquitectura ampliamente usada en procesadores móviles, dispositivos embebidos y ahora también en servidores y computadoras modernas (como Apple Silicon). Este compilador ayuda a entender cómo se traduce un lenguaje como Go a instrucciones reales que puede ejecutar un procesador ARM moderno.
+- [Technical manual](docs/ManualTecnicoGoLigth.pdf)
+- [User manual](docs/ManualUsuarioGoLigth.pdf)
+- [Grammar](docs/gramaticaANTLR4.pdf)
