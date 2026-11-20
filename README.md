@@ -2,7 +2,7 @@
 
 A compiler for **GoLight**, a subset of Go, that emits AArch64 (ARM64) assembly. The assembly is built with GNU binutils and runs on QEMU. A Next.js web editor sends code to a C#/.NET API that parses it with ANTLR4 and returns the generated assembly.
 
-Course project for *Organización de Lenguajes y Compiladores 2* (Universidad de San Carlos de Guatemala, 1st semester 2025). Individual work. It continues my [GoLight interpreter](https://github.com/AbdielOtzoy/OLC2_Proyecto1_202300350), which runs the same language with a tree-walking interpreter.
+Course project for *Organización de Lenguajes y Compiladores 2* (Universidad de San Carlos de Guatemala, 1st semester 2025). Individual work. It continues my [GoLight interpreter](https://github.com/AbdielOtzoy/golight-interpreter), which runs the same language with a tree-walking interpreter.
 
 ## How it works
 
